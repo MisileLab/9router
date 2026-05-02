@@ -198,6 +198,15 @@ Respond ONLY with the JSON object, no other text.`);
     }
   }
 
+  // GLM thinking models: auto-enable thinking if client didn't set any config.
+  // Z.AI (glm provider, format: claude) requires thinking param for glm-5.1 and glm-5.
+  if (!result.thinking && !body.reasoning_effort) {
+    const modelLower = (model || "").toLowerCase();
+    if (modelLower === "glm-5.1" || modelLower === "glm-5") {
+      result.thinking = { type: "enabled", budget_tokens: 32768 };
+    }
+  }
+
   // Attach toolNameMap to result for response translation
   if (toolNameMap.size > 0) {
     result._toolNameMap = toolNameMap;
