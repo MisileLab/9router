@@ -57,8 +57,8 @@ export const GEMINI_CONFIG = {
 // Qwen OAuth Configuration (Device Code Flow with PKCE)
 export const QWEN_CONFIG = {
   clientId: "f0304373b74a44d2b584a3fb70ca9e56",
-  deviceCodeUrl: "https://qwen.ai/api/v1/oauth2/device/code",
-  tokenUrl: "https://qwen.ai/api/v1/oauth2/token",
+  deviceCodeUrl: "https://chat.qwen.ai/api/v1/oauth2/device/code",
+  tokenUrl: "https://chat.qwen.ai/api/v1/oauth2/token",
   scope: "openid profile email model.completion",
   codeChallengeMethod: "S256",
 };
@@ -108,8 +108,8 @@ export const ANTIGRAVITY_CONFIG = {
   onboardUserEndpoint: "https://cloudcode-pa.googleapis.com/v1internal:onboardUser",
   loadCodeAssistUserAgent: "google-api-nodejs-client/9.15.1",
   loadCodeAssistApiClient: "google-cloud-sdk vscode_cloudshelleditor/0.1",
-  // String enum matches CLIProxyAPI Go source (internal/auth/antigravity/constants.go)
-  loadCodeAssistClientMetadata: JSON.stringify({ ideType: "IDE_UNSPECIFIED", platform: "PLATFORM_UNSPECIFIED", pluginType: "GEMINI" }),
+  // Numeric enums matching Antigravity binary ClientMetadata (see getOAuthClientMetadata below)
+  loadCodeAssistClientMetadata: JSON.stringify({ ideType: 9, platform: getOAuthPlatformEnum(), pluginType: 2 }),
 };
 
 /**

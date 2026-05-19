@@ -2,7 +2,14 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { FREE_PROVIDERS } from "@/shared/constants/providers";
+import { FREE_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
+
+// Keep providers without serviceKinds (default LLM) or with "llm" in serviceKinds
+function isLLMProvider(id) {
+  const p = AI_PROVIDERS[id];
+  if (!p?.serviceKinds) return true;
+  return p.serviceKinds.includes("llm");
+}
 import Badge from "./Badge";
 import Card from "./Card";
 import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
@@ -42,7 +49,7 @@ function RecentRequests({ requests = [] }) {
         <div className="flex-1 flex items-center justify-center text-text-muted text-sm">No requests yet.</div>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <table className="w-full min-w-[420px] border-collapse text-xs">
+          <table className="w-full min-w-[300px] border-collapse text-xs">
             <thead className="sticky top-0 bg-bg z-10">
               <tr className="border-b border-border">
                 <th className="py-1.5 text-left font-semibold text-text-muted w-2"></th>
@@ -175,13 +182,14 @@ const TABLE_OPTIONS = [
 ];
 
 const PERIODS = [
+  { value: "today", label: "Today" },
   { value: "24h", label: "24h" },
   { value: "7d", label: "7D" },
   { value: "30d", label: "30D" },
   { value: "60d", label: "60D" },
 ];
 
-export default function UsageStats() {
+export default function UsageStats({ period: periodProp, setPeriod: setPeriodProp, hidePeriodSelector = false } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -194,7 +202,9 @@ export default function UsageStats() {
   const [tableView, setTableView] = useState("model");
   const [viewMode, setViewMode] = useState("costs");
   const [providers, setProviders] = useState([]);
-  const [period, setPeriod] = useState("7d");
+  const [periodLocal, setPeriodLocal] = useState("today");
+  const period = periodProp ?? periodLocal;
+  const setPeriod = setPeriodProp ?? setPeriodLocal;
 
   // Fetch connected providers once, deduplicate by provider type
   // Always include noAuth free providers (e.g. opencode) regardless of connections
@@ -204,12 +214,14 @@ export default function UsageStats() {
       .then((d) => {
         const seen = new Set();
         const unique = (d?.connections || []).filter((c) => {
+          if (c.isActive === false) return false;
+          if (!isLLMProvider(c.provider)) return false;
           if (seen.has(c.provider)) return false;
           seen.add(c.provider);
           return true;
         });
         const noAuthProviders = Object.values(FREE_PROVIDERS)
-          .filter((p) => p.noAuth && !seen.has(p.id))
+          .filter((p) => p.noAuth && !seen.has(p.id) && isLLMProvider(p.id))
           .map((p) => ({ provider: p.id, name: p.name }));
         setProviders([...unique, ...noAuthProviders]);
       })
@@ -398,24 +410,26 @@ export default function UsageStats() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      {/* Period selector */}
-      <div className="flex w-full items-center gap-2 sm:w-auto sm:self-end">
-        <div className="grid flex-1 grid-cols-4 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex sm:flex-none">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value)}
-              disabled={fetching}
-              className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${period === p.value ? "bg-primary text-white shadow-sm" : "text-text-muted hover:bg-bg-hover hover:text-text"}`}
-            >
-              {p.label}
-            </button>
-          ))}
+      {/* Period selector (hidden when controlled by parent) */}
+      {!hidePeriodSelector && (
+        <div className="flex w-full items-center gap-2 sm:w-auto sm:self-end">
+          <div className="grid flex-1 grid-cols-5 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex sm:flex-none">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                disabled={fetching}
+                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${period === p.value ? "bg-primary text-white shadow-sm" : "text-text-muted hover:bg-bg-hover hover:text-text"}`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {fetching && (
+            <span className="material-symbols-outlined text-[16px] text-text-muted animate-spin">progress_activity</span>
+          )}
         </div>
-        {fetching && (
-          <span className="material-symbols-outlined text-[16px] text-text-muted animate-spin">progress_activity</span>
-        )}
-      </div>
+      )}
 
       {/* Overview cards */}
       {loading ? spinner : <OverviewCards stats={stats} />}
@@ -442,7 +456,8 @@ export default function UsageStats() {
           <select
             value={tableView}
             onChange={(e) => setTableView(e.target.value)}
-            className="w-full rounded-lg border border-border bg-bg-subtle px-3 py-1.5 text-sm font-medium text-text focus:outline-none focus:ring-2 focus:ring-primary/50 sm:w-auto"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text-main focus:outline-none focus:ring-2 focus:ring-primary/50 sm:w-auto"
+            style={{ colorScheme: 'auto' }}
           >
             {TABLE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
